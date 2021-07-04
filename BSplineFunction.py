@@ -652,9 +652,12 @@ class BSpline:
         
         # self.pcd = o3d.geometry.PointCloud()
         # self.pcd.points = o3d.utility.Vector3dVector(fileMesh_pc)
-              
-        self.pcd = o3d.io.read_point_cloud(fileName)      
-        self.pointArray  = np.asarray(self.pcd.points)
+        self.mesh = o3d.io.read_triangle_mesh(fileName)   
+        self.pointArray  =  np.asarray(self.mesh.vertices)  
+        
+        #self.pcd = o3d.io.read_point_cloud(fileName)    
+        
+        #self.pointArray  = np.asarray(self.pcd.points)
         self.pointArrayLen = self.pointArray.shape[0]
         
         # self.pcd.paint_uniform_color([0,0,0])
@@ -807,8 +810,8 @@ class BSpline:
                     print("generate fitted surface: %lf percent"%(idx/(fittedSurfacePointSize*fittedSurfacePointSize)*100.0))
         
         #For temporarily usage
-        # self.pcd_ctrl_grid= o3d.geometry.PointCloud()
-        # self.pcd_ctrl_grid.points = o3d.utility.Vector3dVector(self.fittedsurfacePntSet)
+        self.pcd_fittedSurface= o3d.geometry.PointCloud()
+        self.pcd_fittedSurface.points = o3d.utility.Vector3dVector(self.fittedsurfacePntSet)
         # o3d.visualization.draw_geometries([self.pcd_ctrl_grid],zoom=0.960,
                                   # front=[0.84841049853050299, -0.048488852712833749, 0.52711332476595241],
                                   # lookat=[-0.00025060799999999939, -0.0041934506499999996, 0.024576648150000002],
@@ -876,177 +879,92 @@ class BSpline:
                                   lookat=[-0.00025060799999999939, -0.0041934506499999996, 0.024576648150000002],
                                   up=[-0.11260970406923929, 0.95646830601522326, 0.26923490512525977])
     
+    def CalculateCtrlEdgeList(self):
     
+        #get numpy array  pcd_ctrlpoint
+        self.ctrlgrid_pointTable = np.asarray(self.pcd_ctrlpoint.points)
+        #print(self.pcd_ctrlpntArray)
+        
+        cols=int((self.ctrlPntNumber_x))
+        edgeNum = 2* (cols-1)*(cols)
+        #print("Edgenum is %d"%(edgeNum))
+        self.ctrlgrid_edgeTable = np.zeros((edgeNum,2))         #used to render
+        self.edgeTable = np.arange(edgeNum*2, dtype='int32')    #old code
+        
+        iterSum = cols
+        firstpara = int(0)
+        for i in range(cols):
+            for j in range(cols - 1):
+                self.edgeTable[i*(cols-1)*2 + j*2] = firstpara + j * cols
+                self.edgeTable[i*(cols-1)*2 + j*2 + 1] = firstpara + (j+1)*cols
+            firstpara=firstpara+1
+        
+        firstpara = 0
+        
+        for i in range(iterSum,iterSum*2,1):
+            for j in range(cols - 1):
+                self.edgeTable[i*(cols-1)*2 + j*2] = firstpara+j
+                self.edgeTable[i*(cols-1)*2 + j*2 + 1] = firstpara + j+1
+            firstpara=firstpara+cols
+        
+        #print("EdgeTable: \n",self.edgeTable,"\n")
+        
+        for i in range(edgeNum):
+            self.ctrlgrid_edgeTable[i][0] = self.edgeTable[i*2+0]
+            self.ctrlgrid_edgeTable[i][1] = self.edgeTable[i*2+1]
+        
+        #print("EdgeTable: \n",self.edgeTable,"\n")
+        
+        self.ctrlpnt_line_set = o3d.geometry.LineSet(
+        points=o3d.utility.Vector3dVector(self.ctrlgrid_pointTable),
+        lines=o3d.utility.Vector2iVector(self.ctrlgrid_edgeTable))
+        
+        self.ctrlpnt_line_set.paint_uniform_color([0,1,0]) 
+        
+def saveCtrlPointArray(destFile,npArray3n):
+    #np.save(destFile, npArray3n)
+    np.savetxt(destFile, npArray3n, delimiter=',')   # X is an array
+        #pass
+        
+        
+        
 if __name__ == "__main__":
     
-    # #store basis value into disk, so as to directly read it next time
-    # test = BSplineBasis()
-    # test.Init(9,4)
+    useRawPntCld = True
+
+    basis = BSplineBasis()
+    basis.Init(10,4)             #
     
-    # #activate this function if BasisTableSize has been changed
-    # test.StoreBasisValueIntoFile()
+    #activate this function if BasisTableSize has been changed
+    basis.StoreBasisValueIntoFile()
+    ###
+    Bspline = BSpline()
+    Bspline.GetCtrlPntNumber_CtrlOrder(10,10,4,4)
+    Bspline.basis_x.ReadBasisValueFromFile()
+    dst_dir = "target.obj"
+    Bspline.ReadObjFile(dst_dir)
+    Bspline.BSplineSolve() 
+    Bspline.GenerateFittedPatch()      #pcd_fittedSurface
+   
     
+    #translate from numpy array to o3d pc
+    Bspline.GenerateCtrlPointCloud()   #pcd_ctrlpoint
+    Bspline.CalculateCtrlEdgeList()
     
-    # ###
-    # test2 = BSpline()
-    # test2.GetCtrlPntNumber_CtrlOrder(9,9,4,4)
-    # test2.basis_x.ReadBasisValueFromFile()
-    
-    # #read raw data
-    
-    # prefix = "./RealTime/Raw Data/Raw"
-    # postfixTxt = ".txt"
-    # postfixXYZ = ".xyz"
-    # rawIdx = int(5)
-    # dst_dir= prefix + str(rawIdx) + postfixXYZ
-    
-    # #shutil.copy(src_dir,dst_dir)
-    # test2.ReadObjFile(dst_dir)
-    # #cal ctrl grid
-    # test2.BSplineSolve()                    
-    # #cal fitted surface point array
-    # test2.GenerateFittedPatch()            
-    
-    # #translate from numpy array to o3d pc
-    # test2.GenerateCtrlPointCloud()
-    # #test2.VisualizePCs(test2.pcd_ctrlpoint,test2.pcd)
+    o3d.visualization.draw_geometries([Bspline.pcd_fittedSurface,Bspline.pcd_ctrlpoint,Bspline.mesh,Bspline.ctrlpnt_line_set])
+    outputCtrlFile = "./targetCtrlPnt.txt"
+    saveCtrlPointArray(outputCtrlFile,np.asarray(Bspline.pcd_ctrlpoint.points))
     
     
-    # #see whether update should work
+    
     # visualizer = Open3DVisualizer()
-    # visualizer.GetRawPointCloud(test2.pcd)
-    # visualizer.GetCtrlPointCloud(test2.pcd_ctrlpoint,test2.ctrlPntNumber_x)
-    # visualizer.CalculateEdgeList()
-    # visualizer.VisualizeCtrlGrid_RawData()      #VISUALIZATION
-    
-    
-    # visualizer.GetFittedPointArray(test2.fittedsurfacePntSet,fittedSurfacePointSize)
-    # visualizer.CalculateFittedSurface()
-   
-   
-    # targetSpline = BSpline()
-    # targetSpline.GetCtrlPntNumber_CtrlOrder(9,9,4,4)
-    # targetSpline.basis_x.ReadBasisValueFromFile()
-    # targetSpline.ReadTargetCtrlFile("./Target/Ctrl Pnt/Ctrl0.xyz")
-    
-    
+    # visualizer.CreateWindow()
     
     # visualizer.GetTargetFittedPointArray(targetSpline.targetfittedsurfacePntSet,fittedSurfacePointSize )
     # visualizer.CalculateTargetFittedSurface()
     # visualizer.BackupTargetMesh()
-    # visualizer.ApplyRT_TargetMesh("./Target/RT/Transformation5.txt")
     
-    # visualizer.ApplyColorToRTMesh() #here also calulate distance
+    # visualizer.AdjustToOriginalPos()
     
-    # # #When type = :
-        # # #0 -> only real-time mesh
-        # # #1 -> only target mesh
-        # # #2 -> mixture
-        # # #3 -> only real-time with colormap
-    # visualizer.ShowMesh(3)
-    
-    
-###########################################################################################    
-###########################################################################################  
-###########################################################################################  
-#reuse
-    useRawPntCld = True
-
-    test = BSplineBasis()
-    test.Init(10,4)
-    
-    #activate this function if BasisTableSize has been changed
-    test.StoreBasisValueIntoFile()
-    ###
-    test2 = BSpline()
-    test2.GetCtrlPntNumber_CtrlOrder(10,10,4,4)
-    test2.basis_x.ReadBasisValueFromFile()
-    
-    targetSpline = BSpline()
-    targetSpline.GetCtrlPntNumber_CtrlOrder(10,10,4,4)
-    targetSpline.basis_x.ReadBasisValueFromFile()
-    targetSpline.ReadTargetCtrlFile("./Target/Ctrl Pnt/Ctrl0.xyz")
-    
-    visualizer = Open3DVisualizer()
-    visualizer.CreateWindow()
-    
-    visualizer.GetTargetFittedPointArray(targetSpline.targetfittedsurfacePntSet,fittedSurfacePointSize )
-    visualizer.CalculateTargetFittedSurface()
-    visualizer.BackupTargetMesh()
-    
-    visualizer.AdjustToOriginalPos()
-    
-    for i in range(0,8):
-        #store basis value into disk, so as to directly read it next time
-        
-        
-        #read raw data
-        
-        
-        
-        prefix = "./RealTime/Raw Data/Raw"
-        postfixTxt = ".txt"
-        postfixXYZ = ".xyz"
-        postfixOBJ = ".obj"
-        rawIdx = int(i)
-        dst_dir= prefix + str(rawIdx) + postfixXYZ
-        rtMesh_file = prefix + str(rawIdx) + postfixOBJ
-        
-        #shutil.copy(src_dir,dst_dir)
-        test2.ReadObjFile(dst_dir)
-        #cal ctrl grid
-        test2.BSplineSolve()                    
-        #cal fitted surface point array
-        test2.GenerateFittedPatch()            
-        
-        #translate from numpy array to o3d pc
-        test2.GenerateCtrlPointCloud()
-        #test2.VisualizePCs(test2.pcd_ctrlpoint,test2.pcd)
-        
-        
-        #see whether update should work
-       
-        visualizer.GetRawPointCloud(test2.pcd)
-        visualizer.GetCtrlPointCloud(test2.pcd_ctrlpoint,test2.ctrlPntNumber_x)
-        visualizer.CalculateEdgeList()
-        #visualizer.VisualizeCtrlGrid_RawData()      #VISUALIZATION
-        
-        
-        visualizer.GetFittedPointArray(test2.fittedsurfacePntSet,fittedSurfacePointSize)
-        visualizer.CalculateFittedSurface()
-       
-        transformation_file_prefix = "./Target/RT/Transformation"
-        transformation_file_middle = str(i)
-        transformation_file_postfix = ".txt"
-
-        transformation_file = transformation_file_prefix+transformation_file_middle+transformation_file_postfix
-        
-        print("File name: ",dst_dir,"\nTransformation: ",transformation_file,"\n")
-        
-        visualizer.ApplyRT_TargetMesh(transformation_file)
-        
-        # #When ShowMesh type = :
-            # #0 -> only real-time mesh
-            # #1 -> only target mesh
-            # #2 -> mixture
-            # #3 -> only real-time fitted surface with colormap
-            # #4 -> only real-time raw data meshed with colormap
-        if useRawPntCld == True:
-            visualizer.ReadRawPointCloud(rtMesh_file)
-            visualizer.ApplyColorToRTMesh(2) #here also calulate distance
-            visualizer.ShowMesh(4,i)
-        
-        if useRawPntCld == False:
-            visualizer.ApplyColorToRTMesh(1) #here also calulate distance
-            visualizer.ShowMesh(3)
-        ###here is to calculate raw data mesh with distance colorMap
-        
-        print("\n**************************\n")
-        print("\n**************************\n")
-        print("\n**************************\n")
-        print("PERCENT: ",((i+1)/17)*100.0,"\n")
-        print("\n**************************\n")
-        print("\n**************************\n")
-        print("\n**************************\n")
-        
+  
             
