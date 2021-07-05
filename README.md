@@ -6,9 +6,8 @@ Personal belongings for geometry processing
 
 - BSplineReadCtrlPatch.py           ->  read ctrl patch and generate fitted surface
 
-- CalculateGroupDistance.py       ->  calculate distance of sample points on fitted surface to  
+- CalculateGroupDistance.py       ->  calculate distance of sample points on fitted surface to  another fitted surface
 
-  ​                                                             another fitted surface 
 
 
 
@@ -24,6 +23,10 @@ Personal belongings for geometry processing
 
   ![image-20210706013152878](https://raw.githubusercontent.com/YingGwan/TyporaUploadImg/main/typora202107/06/013154-406451.png)
 
-- 
+  
+
+- ICP
+
+  ​	![image-20210706035608537](https://raw.githubusercontent.com/YingGwan/TyporaUploadImg/main/typora202107/06/035611-434330.png)
 
   
