@@ -966,6 +966,44 @@ class BSpline:
         lines=o3d.utility.Vector2iVector(self.ctrlgrid_edgeTable))
         
         self.ctrlpnt_line_set.paint_uniform_color([0,1,0]) 
+    def CalculateTargetFittedSurface(self):
+        cols=int((fittedSurfacePointSize)) #targetfittedsurfacePntSet
+        faceNum = 2* (cols-1)*(cols-1)
+        iterSum = (cols-1)*(cols-1)
+        
+        self.targetfaceTable = np.arange(faceNum*3, dtype='int32')    #old code
+        self.targetfaceArray = np.zeros((faceNum,3))
+        firstPara = 0
+        
+        faceIdx= 0
+        for i in range(iterSum):
+            if (i%(cols-1) ==0)and(i!=0):
+                firstPara = firstPara+1
+            self.targetfaceTable[i*6+0] = firstPara
+            self.targetfaceTable[i*6+1] = firstPara+cols
+            self.targetfaceTable[i*6+2] = firstPara+1
+            
+            self.targetfaceTable[i*6+3] = firstPara+cols
+            self.targetfaceTable[i*6+4] = firstPara+cols+1
+            self.targetfaceTable[i*6+5] = firstPara+1
+            
+            self.targetfaceArray[faceIdx][0] = firstPara
+            self.targetfaceArray[faceIdx][1] = firstPara+cols
+            self.targetfaceArray[faceIdx][2] = firstPara+1
+            
+            self.targetfaceArray[faceIdx+1][0] = firstPara+cols
+            self.targetfaceArray[faceIdx+1][1] = firstPara+cols+1
+            self.targetfaceArray[faceIdx+1][2] = firstPara+1
+            
+            firstPara = firstPara+1
+            faceIdx = faceIdx +2
+        
+        # From numpy to Open3D        
+        self.targetmesh = o3d.geometry.TriangleMesh()
+        self.targetmesh.vertices = o3d.utility.Vector3dVector(self.targetfittedsurfacePntSet)
+        self.targetmesh.triangles = o3d.utility.Vector3iVector(self.targetfaceArray)
+        
+        self.targetmesh.compute_vertex_normals()
         
 def saveCtrlPointArray(destFile,npArray3n):
     #np.save(destFile, npArray3n)
@@ -988,11 +1026,11 @@ if __name__ == "__main__":
     TargetBSpline.basis_x.ReadBasisValueFromFile()
     
     TargetBSpline.ReadTargetCtrlFile("targetCtrlPnt.xyz")           #read target ctrl patch and generate fitted surface
+    TargetBSpline.CalculateTargetFittedSurface()
 
-    #translate from numpy array to o3d pc
     TargetBSpline.CalculateTargetCtrlEdgeList()
     
-    o3d.visualization.draw_geometries([TargetBSpline.ctrlpnt_line_set,TargetBSpline.pcd_targetctrl])
+    o3d.visualization.draw_geometries([TargetBSpline.targetmesh,TargetBSpline.ctrlpnt_line_set,TargetBSpline.pcd_targetctrl])
     #ctrlpnt_line_set
     
     
